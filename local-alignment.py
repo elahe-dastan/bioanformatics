@@ -440,3 +440,98 @@ PAM250 = {
         "Y": 10,
     },
 }
+
+
+class Alignment:
+    def __init__(self, gap_penalty: int, a: str, b: str):
+        self.scoring_matrix = PAM250
+        self.gap_penalty = gap_penalty
+        self.a = a
+        self.b = b
+        rows, cols = (len(a) + 1, len(b) + 1)
+        self.matrix = [[0] * cols for _ in range(rows)]
+        self.a_local = ""
+        self.b_local = ""
+
+    def local_alignment(self):
+        self.initialization()
+        self.fill_matrix()
+        self.trace_back()
+
+    def initialization(self):
+        self.matrix[0][0] = 0
+        for i in range(1, len(self.matrix)):
+            self.matrix[i][0] = 0
+        for i in range(1, len(self.matrix[0])):
+            self.matrix[0][i] = 0
+
+    def fill_matrix(self):
+        for i in range(1, len(self.matrix)):
+            for j in range(1, len(self.matrix[0])):
+                self.matrix[i][j] = self.score(i, j)
+
+    def score(self, i: int, j: int) -> int:
+        m = 0
+        s = self.scoring_matrix[self.a[i - 1]][
+            self.b[j - 1]
+        ]  # match/mismatch score
+        v = self.matrix[i - 1][j - 1] + s  # m stands for max
+        if v > m:
+            m = v
+        v = self.matrix[i - 1][j] + self.gap_penalty
+        if v > m:
+            m = v
+        v = self.matrix[i][j - 1] + self.gap_penalty
+        if v > m:
+            m = v
+        return m
+
+    def trace_back(self):
+        # find the maximum value index in the matrix
+        v = 0
+        row_index = 0
+        col_index = 0
+        for i in range(len(self.matrix)):
+            for j in range(len(self.matrix[0])):
+                if self.matrix[i][j] > v:
+                    row_index = i
+                    col_index = j
+                    v = self.matrix[i][j]
+        print(self.matrix[row_index][col_index])
+        while self.matrix[row_index][col_index] > 0:
+            row_index, col_index = self.go_back(row_index, col_index)
+        print(self.a_local)
+        print(self.b_local)
+
+    def go_back(self, row_index, col_index):
+        # first check left
+        if (
+            self.matrix[row_index][col_index]
+            == self.matrix[row_index][col_index - 1] + self.gap_penalty
+        ):
+            self.a_local = "-" + self.a_local
+            self.b_local = self.b[col_index - 1] + self.b_local
+            col_index -= 1
+        # second check above
+        elif (
+            self.matrix[row_index][col_index]
+            == self.matrix[row_index - 1][col_index] + self.gap_penalty
+        ):
+            self.a_local = self.a[row_index - 1] + self.a_local
+            self.b_local = "-" + self.b_local
+            row_index -= 1
+        # check match/mismatch at the end
+        else:
+            self.a_local = self.a[row_index - 1] + self.a_local
+            self.b_local = self.b[col_index - 1] + self.b_local
+            col_index -= 1
+            row_index -= 1
+        return row_index, col_index
+
+
+if __name__ == "__main__":
+    A = input()
+    B = input()
+
+    align = Alignment(-5, A, B)
+    align.local_alignment()
