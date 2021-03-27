@@ -443,13 +443,24 @@ PAM250 = {
 
 
 class Alignment:
+    """
+    Alignment implements dynamic programming to solve local alignment problem.
+    for more information about the local alignment DP and its
+    differences with global alignment please refer to the following link:
+
+    https://cs.stackexchange.com/questions/134143/find-optimal-local-alignment-of-two-strings-with-restrictions
+    """
+
     def __init__(self, gap_penalty: int, a: str, b: str):
         self.scoring_matrix = PAM250
         self.gap_penalty = gap_penalty
+
         self.a = a
         self.b = b
+
         rows, cols = (len(a) + 1, len(b) + 1)
         self.matrix = [[0] * cols for _ in range(rows)]
+
         self.a_local = ""
         self.b_local = ""
 
@@ -459,6 +470,9 @@ class Alignment:
         self.trace_back()
 
     def initialization(self):
+        """
+        create the dynamic programming matrix
+        """
         self.matrix[0][0] = 0
         for i in range(1, len(self.matrix)):
             self.matrix[i][0] = 0
@@ -466,25 +480,31 @@ class Alignment:
             self.matrix[0][i] = 0
 
     def fill_matrix(self):
+        """
+        fill the matrix by solving a recursive equation in each step
+        """
         for i in range(1, len(self.matrix)):
             for j in range(1, len(self.matrix[0])):
                 self.matrix[i][j] = self.score(i, j)
 
     def score(self, i: int, j: int) -> int:
-        m = 0
-        s = self.scoring_matrix[self.a[i - 1]][
+        """
+        the recursive equation that is used to fill the matrix
+        """
+        max_ = 0
+        score = self.scoring_matrix[self.a[i - 1]][
             self.b[j - 1]
         ]  # match/mismatch score
-        v = self.matrix[i - 1][j - 1] + s  # m stands for max
-        if v > m:
-            m = v
-        v = self.matrix[i - 1][j] + self.gap_penalty
-        if v > m:
-            m = v
-        v = self.matrix[i][j - 1] + self.gap_penalty
-        if v > m:
-            m = v
-        return m
+        value = self.matrix[i - 1][j - 1] + score
+        if value > max_:
+            max_ = value
+        value = self.matrix[i - 1][j] + self.gap_penalty
+        if value > max_:
+            max_ = value
+        value = self.matrix[i][j - 1] + self.gap_penalty
+        if value > max_:
+            max_ = value
+        return max_
 
     def trace_back(self):
         # find the maximum value index in the matrix
