@@ -1,6 +1,7 @@
-from alignment import local_alignment
+from alignment import *
 
 A = input("Enter first string: ")
-B = input("Enter first string: ")
+B = input("Enter second string: ")
 
-local_alignment(A, B)
+ali = Alignment(-5)
+ali.local_alignment(A, B)
