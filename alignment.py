@@ -22,9 +22,9 @@ class Alignment:
     def initialization(self):
         self.matrix[0][0] = 0
         for i in range(1, len(self.matrix)):
-            self.matrix[i][0] = -5 * i
+            self.matrix[i][0] = self.gap_penalty * i
         for i in range(1, len(self.matrix[0])):
-            self.matrix[0][i] = -5 * i
+            self.matrix[0][i] = self.gap_penalty * i
 
     def fill_matrix(self):
         for i in range(1, len(self.matrix)):
@@ -32,7 +32,9 @@ class Alignment:
                 self.matrix[i][j] = self.score(i, j)
 
     def score(self, i: int, j: int) -> int:
-        s = self.scoring_matrix[self.a[i - 1]][self.b[j - 1]]  # match/mismatch score
+        s = self.scoring_matrix[self.a[i - 1]][
+            self.b[j - 1]
+        ]  # match/mismatch score
         m = self.matrix[i - 1][j - 1] + s  # m stands for max
         gap = self.matrix[i - 1][j] + self.gap_penalty
         if gap > m:
@@ -43,9 +45,10 @@ class Alignment:
         return m
 
     def trace_back(self):
-        m = np.argmax(self.matrix)
-        row_index = int(m / len(self.matrix[0]))
-        col_index = m % len(self.matrix[0])
+        row_index, col_index = np.unravel_index(
+            np.argmax(self.matrix, axis=None), self.matrix.shape
+        )
+        print(row_index, col_index)
         while self.matrix[row_index, col_index] >= 0:
             row_index, col_index = self.go_back(row_index, col_index)
         self.a_local = self.a[row_index - 1] + self.a_local
@@ -55,12 +58,18 @@ class Alignment:
 
     def go_back(self, row_index, col_index):
         # first check left
-        if self.matrix[row_index][col_index] == self.matrix[row_index][col_index - 1] + self.gap_penalty:
+        if (
+            self.matrix[row_index][col_index]
+            == self.matrix[row_index][col_index - 1] + self.gap_penalty
+        ):
             self.a_local = "-" + self.a_local
             self.b_local = self.b[col_index - 1] + self.b_local
             col_index -= 1
         # second check above
-        elif self.matrix[row_index][col_index] == self.matrix[row_index - 1][col_index] + self.gap_penalty:
+        elif (
+            self.matrix[row_index][col_index]
+            == self.matrix[row_index - 1][col_index] + self.gap_penalty
+        ):
             self.a_local = self.a[row_index - 1] + self.a_local
             self.b_local = "-" + self.b_local
             row_index -= 1
