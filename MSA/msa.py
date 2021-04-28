@@ -10,8 +10,8 @@ class MSA:
             [0 for _ in range(self.n)] for _ in range(self.n)
         ]
         self.divergence = [0 for i in range(self.n)]
-        self.new_distance_matrix = [
-            [0 for _ in range(self.n)] for _ in range(self.n)
+        self.new_distance_matrix: typing.List[typing.List[float]] = [
+            [0.0 for _ in range(self.n)] for _ in range(self.n)
         ]
 
     @staticmethod
@@ -122,19 +122,19 @@ class MSA:
     def build_new_distance_matrix(self):
         for i in range(self.n):
             for j in range(i + 1, self.n):
-                temp = self.distance_matrix[i][j] - (
+                distance = self.distance_matrix[i][j] - (
                     self.divergence[i] + self.divergence[j]
                 ) / (self.n - 2)
-                self.new[i][j] = temp
-                self.new[j][i] = temp
+                self.new_distance_matrix[i][j] = distance
+                self.new_distance_matrix[j][i] = distance
 
     def choose_neighbor(self):
-        min = self.new[0][0]
+        min = self.new_distance_matrix[0][0]
         row, column = 0, 0
         for i in range(self.n):
             for j in range(i + 1, self.n):
-                if self.new[i][j] < min:
-                    min = self.new[i][j]
+                if self.new_distance_matrix[i][j] < min:
+                    min = self.new_distance_matrix[i][j]
                     row, column = i, j
 
         return row, column
