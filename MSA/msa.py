@@ -4,18 +4,25 @@ import functools
 
 class MSA:
     def __init__(self, sequences):
-        self.sequences = sequences
+        """
+        initiates all required data structure
+        """
+        self.sequences: typing.List[str] = sequences
         self.n = len(self.sequences)
-        self.distance_matrix: typing.List[typing.List[int]] = [
-            [0 for _ in range(self.n)] for _ in range(self.n)
+        self.distance_matrix: typing.List[typing.List[float]] = [
+            [0.0 for _ in range(self.n)] for _ in range(self.n)
         ]
-        self.divergence = [0 for i in range(self.n)]
+        self.divergence: typing.List[float] = [0.0 for i in range(self.n)]
         self.new_distance_matrix: typing.List[typing.List[float]] = [
             [0.0 for _ in range(self.n)] for _ in range(self.n)
         ]
 
     @staticmethod
     def global_align(x, y, s_match, s_mismatch, s_gap):
+        """
+        global alignment of two sequence based on a code which is availabe
+        on Quera for this homework without any modification.
+        """
         A = []
         for i in range(len(y) + 1):
             A.append([0] * (len(x) + 1))
@@ -96,6 +103,9 @@ class MSA:
         """
         distance matrix contains the score of pairwaise global
         alignment between sequences.
+        only in the first time we calculate distance matrix by
+        global alignments, each next steps will calculate it by
+        neighbor joining algorithm.
         """
         for i in range(self.n):
             for j in range(i + 1, self.n):
@@ -104,15 +114,27 @@ class MSA:
                 )
                 self.distance_matrix[i][j] = score
                 self.distance_matrix[j][i] = score
-        print(self.distance_matrix)
 
     def guide_tree(self):
-        self.calculate_divergence()
-        self.build_new_distance_matrix()
-        row, column = self.choose_neighbor()
-        self.u_distances(row, column)
+        """
+        generate a guide by repeating the steps that are discussed
+        here:
+
+        https://www.deduveinstitute.be/~opperd/private/neighbor.html
+        https://en.wikipedia.org/wiki/Neighbor_joining
+        """
+        while self.n > 2:
+            print(self.distance_matrix)
+            self.calculate_divergence()
+            self.build_new_distance_matrix()
+            row, column = self.choose_neighbor()
+            self.u_distances(row, column)
+            self.distances_from_u(row, column)
 
     def calculate_divergence(self):
+        """
+        calculate the divergence based on the distance matrix.
+        """
         for i in range(self.n):
             self.divergence[i] = (
                 functools.reduce(lambda x, y: x + y, self.distance_matrix[i])
@@ -120,6 +142,10 @@ class MSA:
             )
 
     def build_new_distance_matrix(self):
+        """
+        build a new distance matrix whic is called
+        Q-matrix in wikipedia article.
+        """
         for i in range(self.n):
             for j in range(i + 1, self.n):
                 distance = self.distance_matrix[i][j] - (
@@ -129,48 +155,86 @@ class MSA:
                 self.new_distance_matrix[j][i] = distance
 
     def choose_neighbor(self):
-        min = self.new_distance_matrix[0][0]
+        """
+        choose two neighbors that has the minimum score.
+        here we only check the strict lower than and not the equal
+        and lower than to be compatible with the Quera description.
+        """
         row, column = 0, 0
+        min_score = self.new_distance_matrix[row][column]
         for i in range(self.n):
             for j in range(i + 1, self.n):
-                if self.new_distance_matrix[i][j] < min:
-                    min = self.new_distance_matrix[i][j]
+                if self.new_distance_matrix[i][j] < min_score:
+                    min_score = self.new_distance_matrix[i][j]
                     row, column = i, j
 
         return row, column
 
-    def u_distances(self, row, column):
-        row_u = self.distance_matrix[row][column] / 2 + (
-            self.divergence[row] - self.divergence[column]
+    def u_distances(self, seq_a, seq_b):
+        """
+        referes to
+
+        https://en.wikipedia.org/wiki/Neighbor_joining#Distance_from_the_pair_members_to_the_new_node
+        """
+        u_seq_a_seq_b = self.distance_matrix[seq_a][seq_b] / 2 + (
+            self.divergence[seq_a] - self.divergence[seq_b]
         ) / (2 * (self.n - 2))
 
-        column_u = self.distance_matrix[row][column] - row_u
+        u_seq_b_seq_a = self.distance_matrix[seq_a][seq_b] - u_seq_a_seq_b
 
-    def distances_from_u(self, row, column):
-        new_matrix = np.delete(self.distance_matrix, [row, column], 0)
-        new_matrix = np.delete(new_matrix, [row, column], 1)
-        new_matrix = np.insert(new_matrix, 0, np.zeros(self.n - 2), axis=0)
-        new_matrix = np.insert(new_matrix, 0, np.zeros(self.n - 2), axis=1)
-        others = np.delete(np.delete(np.arange(self.n), row), column)
-        for i in others:
+        return u_seq_a_seq_b, u_seq_b_seq_a
+
+    def distances_from_u(self, seq_a, seq_b):
+        """
+        generate a new distance matrix by merging
+        the seq_a and seq_b sequences.
+        """
+        # others is a set of remaining sequences
+        others = set(range(self.n)) - {seq_a, seq_b}
+
+        new_matrix: typing.List[typing.List[float]] = [
+            [0 for _ in range(self.n - 1)] for _ in range(self.n - 1)
+        ]
+
+        # create a map between old and new indecies
+        new_indecies = {}
+        for new_index, old_index in enumerate(others):
+            new_indecies[new_index + 1] = old_index
+
+        for i in range(1, self.n - 1):
             new_matrix[i][0] = (
-                self.distance_matrix[row][i]
-                + self.distance_matrix[column][i]
-                - self.distance_matrix[row][column] / 2
+                self.distance_matrix[seq_a][new_indecies[i]]
+                + self.distance_matrix[seq_b][new_indecies[i]]
+                - self.distance_matrix[seq_a][seq_b] / 2
             )
             new_matrix[0][i] = new_matrix[i][0]
 
+        for i in range(1, self.n - 1):
+            for j in range(1, self.n - 1):
+                new_matrix[i][j] = self.distance_matrix[new_indecies[i]][
+                    new_indecies[j]
+                ]
+                new_matrix[j][i] = new_matrix[i][j]
+
+        self.distance_matrix = new_matrix
+        self.n = self.n - 1
+
     def do(self):
+        """
+        do the msa algorithm step by step
+        """
         self.fill_distance_matrix()
         self.guide_tree()
 
 
 if __name__ == "__main__":
-    n = int(input("enter n"))
+    # read the number of sequences
+    n = int(input())
 
+    # read each sequence one by one
     sequences = []
     for _ in range(n):
-        sequence = input("enter sequence")
+        sequence = input()
         sequences.append(sequence)
 
     msa = MSA(sequences)
