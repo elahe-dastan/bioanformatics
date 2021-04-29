@@ -1,13 +1,29 @@
-import typing
+"""
+this module implements multiple sequence alignment (msa).
+"""
 import functools
+import typing
 
 
 class MSA:
+    """
+    progressive alignment builds up a final MSA by combining pairwise
+    alignments beginning with the most similar pair
+    and progressing to the most distantly related.
+    all progressive alignment methods require two stages:
+
+    - a first stage in which the relationships between the sequences
+    are represented as a tree, called a guide tree
+    - a second step in which the MSA is built by adding the sequences
+    sequentially to the growing MSA according to the guide tree.
+    """
+
     def __init__(self, sequences):
         """
         initiates all required data structure
         """
-        self.sequences: typing.List[str] = sequences
+        self.base_sequences: typing.List[str] = sequences
+        self.sequences: typing.Any = sequences
         self.n = len(self.sequences)
         self.distance_matrix: typing.List[typing.List[float]] = [
             [0.0 for _ in range(self.n)] for _ in range(self.n)
@@ -124,12 +140,71 @@ class MSA:
         https://en.wikipedia.org/wiki/Neighbor_joining
         """
         while self.n > 2:
-            print(self.distance_matrix)
             self.calculate_divergence()
             self.build_new_distance_matrix()
             row, column = self.choose_neighbor()
             self.u_distances(row, column)
             self.distances_from_u(row, column)
+
+        root = (self.sequences[0], self.sequences[1])
+        common = self.traverse(root)
+
+        print(common)
+        score = 0
+        for seq in self.base_sequences:
+            _, res, sc = self.global_align(common, seq, 1, -1, -2)
+            score += sc
+            print(res)
+        print(score)
+
+    @staticmethod
+    def consensus(s1: str, s2: str) -> str:
+        if len(s1) != len(s2):
+            return ""
+
+        n = len(s1)
+
+        result = ""
+        for i in range(n):
+            if s1[i] == s2[i]:
+                result += s1[i]
+            elif s1[i] == "-":
+                result += s2[i]
+            elif s2[i] == "-":
+                result += s1[i]
+            else:
+                result += min(s1[i], s2[i])
+        return result
+
+    @staticmethod
+    def traverse(root) -> str:
+        """
+        calculate node alignments.
+        leaves correspond to sequences.
+        internal nodes represent alignments.
+        """
+        r1 = root[0]
+        r2 = root[1]
+
+        rr1: str = ""
+        rr2: str = ""
+
+        if isinstance(r1, tuple):
+            # intermediate node
+            rr1 = MSA.traverse(r1)
+        else:
+            # leaf node
+            rr1 = r1
+
+        if isinstance(r2, tuple):
+            # intermediate node
+            rr2 = MSA.traverse(r2)
+        else:
+            # leaf node
+            rr2 = r2
+
+        ai, aj, _ = MSA.global_align(rr1, rr2, 1, -1, -2)
+        return MSA.consensus(ai, aj)
 
     def calculate_divergence(self):
         """
@@ -215,6 +290,11 @@ class MSA:
                     new_indecies[j]
                 ]
                 new_matrix[j][i] = new_matrix[i][j]
+
+        # we are going to store guide tree into sequence list
+        self.sequences = [(self.sequences[seq_a], self.sequences[seq_b])] + [
+            self.sequences[new_indecies[i]] for i in range(1, self.n - 1)
+        ]
 
         self.distance_matrix = new_matrix
         self.n = self.n - 1
