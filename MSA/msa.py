@@ -75,6 +75,10 @@ class MSA:
         i = len(x)
         j = len(y)
 
+        k = 0
+        gap_X = []
+        gap_Y = []
+
         while i > 0 or j > 0:
 
             current_score = A[j][i]
@@ -108,12 +112,15 @@ class MSA:
             elif i > 0 and (current_score == A[j][i - 1] + s_gap):
                 align_X = x[i - 1] + align_X
                 align_Y = "-" + align_Y
+                gap_Y.append(k)
                 i = i - 1
             else:
                 align_X = "-" + align_X
+                gap_X.append(k)
                 align_Y = y[j - 1] + align_Y
                 j = j - 1
-        return (align_X, align_Y, A[len(y)][len(x)])
+            k += 1
+        return (align_X, align_Y, A[len(y)][len(x)], gap_X, gap_Y)
 
     def fill_distance_matrix(self):
         """
@@ -125,7 +132,7 @@ class MSA:
         """
         for i in range(self.n):
             for j in range(i + 1, self.n):
-                _, _, score = self.global_align(
+                _, _, score, _, _ = self.global_align(
                     self.sequences[i], self.sequences[j], 1, -1, -2
                 )
                 self.distance_matrix[i][j] = score
@@ -149,9 +156,10 @@ class MSA:
         root = (self.sequences[0], self.sequences[1])
         _, _, common = self.traverse(root)
 
+        print(self.sequences)
         results = []
         for seq in self.base_sequences:
-            _, res, _ = self.global_align(common, seq, 1, -1, -2)
+            _, res, _, _, _ = self.global_align(common, seq, 1, -1, -2)
             results.append(res)
             print(res)
 
@@ -201,22 +209,24 @@ class MSA:
         return result
 
     @staticmethod
-    def insert_gap(aligned: str, base: str, consensus: str) -> str:
+    def insert_gap(gaps: typing.List[int], base: str) -> str:
         """
         if an alignment operation introduce a gap into consensus sequence
         we need to add it into its basis.
         """
-        assert len(consensus) != len(aligned)
+
+        n = len(base) + len(gaps)
 
         result = ""
-        j = 0
-        for i in range(len(aligned)):
-            if aligned[i] == consensus[j] or aligned[i] != "-":
-                result += base[j]
-                j += 1
-            else:
+        gap_count = len(gaps) - 1
+        gap_placed = 0
+        for i in range(n):
+            if gap_count >= 0 and i == n - gaps[gap_count]:
+                gap_count -= 1
+                gap_placed += 1
                 result += "-"
-        assert j == len(base)
+            else:
+                result += base[i - gap_placed]
 
         return result
 
@@ -252,35 +262,32 @@ class MSA:
             # leaf node
             rr2 = r2
 
-        ai, aj, _ = MSA.global_align(rr1, rr2, 1, -1, -2)
+        ai, aj, _, gi, gj = MSA.global_align(rr1, rr2, 1, -1, -2)
 
         if isinstance(r1, tuple) and isinstance(r2, tuple):
-            if len(aj) != len(br21):
-                br21 = MSA.insert_gap(ai, br21, rr2)
-            if len(aj) != len(br22):
-                br22 = MSA.insert_gap(ai, br22, rr2)
+            if len(gj) > 0:
+                br21 = MSA.insert_gap(gj, br21)
+                br22 = MSA.insert_gap(gj, br22)
 
-            if len(ai) != len(br11):
-                br11 = MSA.insert_gap(ai, br11, rr1)
-            if len(ai) != len(br12):
-                br12 = MSA.insert_gap(ai, br12, rr1)
-            return ai, aj, MSA.consensus(br21, br22, br11, br12)
+            if len(gi) > 0:
+                br11 = MSA.insert_gap(gi, br11)
+                br12 = MSA.insert_gap(gi, br12)
+            return "", "", MSA.consensus(br21, br22, br11, br12)
 
         # if global alignment introduces a gap into the consensus
         # we need to insert this gap into our base sequences
-        if isinstance(r1, tuple):
-            if len(ai) != len(br11):
-                br11 = MSA.insert_gap(ai, br11, rr1)
-            if len(ai) != len(br12):
-                br12 = MSA.insert_gap(ai, br12, rr1)
-            return ai, aj, MSA.consensus(aj, br11, br12)
+        if isinstance(r1, tuple) and br11 != "" and br12 != "":
+            if len(gi) > 0:
+                print(ai, aj, gi)
+                br11 = MSA.insert_gap(gi, br11)
+                br12 = MSA.insert_gap(gi, br12)
+            return "", "", MSA.consensus(aj, br11, br12)
 
-        if isinstance(r2, tuple):
-            if len(aj) != len(br21):
-                br21 = MSA.insert_gap(ai, br21, rr2)
-            if len(aj) != len(br22):
-                br22 = MSA.insert_gap(ai, br22, rr2)
-            return ai, aj, MSA.consensus(ai, br21, br22)
+        if isinstance(r2, tuple) and br11 != "" and br12 != "":
+            if len(gj) > 0:
+                br21 = MSA.insert_gap(gj, br21)
+                br22 = MSA.insert_gap(gj, br22)
+            return "", "", MSA.consensus(ai, br21, br22)
 
         return ai, aj, MSA.consensus(ai, aj)
 
