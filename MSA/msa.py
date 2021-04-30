@@ -314,7 +314,7 @@ class MSA:
         and lower than to be compatible with the Quera description.
         """
         row, column = 0, 0
-        min_score = self.new_distance_matrix[row][column]
+        min_score = float("inf")
         for i in range(self.n):
             for j in range(i + 1, self.n):
                 if self.new_distance_matrix[i][j] < min_score:
