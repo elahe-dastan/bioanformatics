@@ -147,9 +147,8 @@ class MSA:
             self.distances_from_u(row, column)
 
         root = (self.sequences[0], self.sequences[1])
-        common = self.traverse(root)
+        _, _, common = self.traverse(root)
 
-        print(common)
         score = 0
         for seq in self.base_sequences:
             _, res, sc = self.global_align(common, seq, 1, -1, -2)
@@ -158,26 +157,36 @@ class MSA:
         print(score)
 
     @staticmethod
-    def consensus(s1: str, s2: str) -> str:
-        if len(s1) != len(s2):
-            return ""
-
-        n = len(s1)
+    def consensus(*ss: str) -> str:
+        n = len(ss[0])
 
         result = ""
         for i in range(n):
-            if s1[i] == s2[i]:
-                result += s1[i]
-            elif s1[i] == "-":
-                result += s2[i]
-            elif s2[i] == "-":
-                result += s1[i]
-            else:
-                result += min(s1[i], s2[i])
+            scores: typing.Dict[str, int] = {}
+            for s in ss:
+                if s[i] == "-":
+                    # continue on gap, we will handle it later
+                    pass
+                elif s[i] in scores:
+                    scores[s[i]] += 1
+                else:
+                    scores[s[i]] = 1
+
+            max_score = 0
+            max_ch = "-"
+            for ch in scores:
+                if scores[ch] > max_score:
+                    max_score = scores[ch]
+                    max_ch = ch
+                elif scores[ch] == max_score and ch < max_ch:
+                    max_score = scores[ch]
+                    max_ch = ch
+            result += max_ch
+
         return result
 
     @staticmethod
-    def traverse(root) -> str:
+    def traverse(root) -> typing.Tuple[str, str, str]:
         """
         calculate node alignments.
         leaves correspond to sequences.
@@ -187,24 +196,39 @@ class MSA:
         r2 = root[1]
 
         rr1: str = ""
+        br11: str = ""
+        br12: str = ""
+
         rr2: str = ""
+        br21: str = ""
+        br22: str = ""
 
         if isinstance(r1, tuple):
             # intermediate node
-            rr1 = MSA.traverse(r1)
+            br11, br12, rr1 = MSA.traverse(r1)
         else:
             # leaf node
             rr1 = r1
 
         if isinstance(r2, tuple):
             # intermediate node
-            rr2 = MSA.traverse(r2)
+            br21, br22, rr2 = MSA.traverse(r2)
         else:
             # leaf node
             rr2 = r2
 
         ai, aj, _ = MSA.global_align(rr1, rr2, 1, -1, -2)
-        return MSA.consensus(ai, aj)
+
+        if isinstance(r1, tuple) and isinstance(r2, tuple):
+            return ai, aj, MSA.consensus(ai, aj)
+
+        if isinstance(r1, tuple):
+            return ai, aj, MSA.consensus(ai, aj, br11, br12)
+
+        if isinstance(r2, tuple):
+            return ai, aj, MSA.consensus(ai, aj, br21, br22)
+
+        return ai, aj, MSA.consensus(ai, aj)
 
     def calculate_divergence(self):
         """
