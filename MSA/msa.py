@@ -186,6 +186,10 @@ class MSA:
         return result
 
     @staticmethod
+    def insert_gap(aligned: str, base: str) -> str:
+        return ""
+
+    @staticmethod
     def traverse(root) -> typing.Tuple[str, str, str]:
         """
         calculate node alignments.
@@ -222,11 +226,21 @@ class MSA:
         if isinstance(r1, tuple) and isinstance(r2, tuple):
             return ai, aj, MSA.consensus(ai, aj)
 
+        # if global alignment introduces a gap into the consensus
+        # we need to insert this gap into our base sequences
         if isinstance(r1, tuple):
-            return ai, aj, MSA.consensus(ai, aj, br11, br12)
+            if len(ai) != br11:
+                print("GAP")
+            if len(ai) != br12:
+                print("GAP")
+            return ai, aj, MSA.consensus(aj, br11, br12)
 
         if isinstance(r2, tuple):
-            return ai, aj, MSA.consensus(ai, aj, br21, br22)
+            if len(aj) != br21:
+                print("GAP")
+            if len(aj) != br22:
+                print("GAP")
+            return ai, aj, MSA.consensus(ai, br21, br22)
 
         return ai, aj, MSA.consensus(ai, aj)
 
