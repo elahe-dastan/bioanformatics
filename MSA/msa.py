@@ -149,36 +149,51 @@ class MSA:
         root = (self.sequences[0], self.sequences[1])
         _, _, common = self.traverse(root)
 
-        score = 0
+        results = []
         for seq in self.base_sequences:
-            _, res, sc = self.global_align(common, seq, 1, -1, -2)
-            score += sc
+            _, res, _ = self.global_align(common, seq, 1, -1, -2)
+            results.append(res)
             print(res)
+
+        score = 0
+        for ri in range(len(results)):
+            for rj in range(ri + 1, len(results)):
+                res1 = results[ri]
+                res2 = results[rj]
+
+                for i in range(len(res1)):
+                    if res1[i] == "-" or res2[i] == "-":
+                        score -= 2
+                    elif res1[i] == res2[i]:
+                        score += 1
+                    else:
+                        score -= 1
         print(score)
 
     @staticmethod
     def consensus(*ss: str) -> str:
         n = len(ss[0])
 
+        for s in ss:
+            assert len(s) == n
+
         result = ""
         for i in range(n):
+            # count the characters at index i for each sequence
             scores: typing.Dict[str, int] = {}
             for s in ss:
-                if s[i] == "-":
-                    # continue on gap, we will handle it later
-                    pass
-                elif s[i] in scores:
+                if s[i] in scores:
                     scores[s[i]] += 1
                 else:
                     scores[s[i]] = 1
 
             max_score = 0
-            max_ch = "-"
+            max_ch = ""
             for ch in scores:
                 if scores[ch] > max_score:
                     max_score = scores[ch]
                     max_ch = ch
-                elif scores[ch] == max_score and ch < max_ch:
+                elif scores[ch] == max_score and ch < max_ch and ch != "-":
                     max_score = scores[ch]
                     max_ch = ch
             result += max_ch
@@ -186,8 +201,24 @@ class MSA:
         return result
 
     @staticmethod
-    def insert_gap(aligned: str, base: str) -> str:
-        return ""
+    def insert_gap(aligned: str, base: str, consensus: str) -> str:
+        """
+        if an alignment operation introduce a gap into consensus sequence
+        we need to add it into its basis.
+        """
+        assert len(consensus) != len(aligned)
+
+        result = ""
+        j = 0
+        for i in range(len(aligned)):
+            if aligned[i] == consensus[j] or aligned[i] != "-":
+                result += base[j]
+                j += 1
+            else:
+                result += "-"
+        assert j == len(base)
+
+        return result
 
     @staticmethod
     def traverse(root) -> typing.Tuple[str, str, str]:
@@ -224,22 +255,31 @@ class MSA:
         ai, aj, _ = MSA.global_align(rr1, rr2, 1, -1, -2)
 
         if isinstance(r1, tuple) and isinstance(r2, tuple):
-            return ai, aj, MSA.consensus(ai, aj)
+            if len(aj) != len(br21):
+                br21 = MSA.insert_gap(ai, br21, rr2)
+            if len(aj) != len(br22):
+                br22 = MSA.insert_gap(ai, br22, rr2)
+
+            if len(ai) != len(br11):
+                br11 = MSA.insert_gap(ai, br11, rr1)
+            if len(ai) != len(br12):
+                br12 = MSA.insert_gap(ai, br12, rr1)
+            return ai, aj, MSA.consensus(br21, br22, br11, br12)
 
         # if global alignment introduces a gap into the consensus
         # we need to insert this gap into our base sequences
         if isinstance(r1, tuple):
-            if len(ai) != br11:
-                print("GAP")
-            if len(ai) != br12:
-                print("GAP")
+            if len(ai) != len(br11):
+                br11 = MSA.insert_gap(ai, br11, rr1)
+            if len(ai) != len(br12):
+                br12 = MSA.insert_gap(ai, br12, rr1)
             return ai, aj, MSA.consensus(aj, br11, br12)
 
         if isinstance(r2, tuple):
-            if len(aj) != br21:
-                print("GAP")
-            if len(aj) != br22:
-                print("GAP")
+            if len(aj) != len(br21):
+                br21 = MSA.insert_gap(ai, br21, rr2)
+            if len(aj) != len(br22):
+                br22 = MSA.insert_gap(ai, br22, rr2)
             return ai, aj, MSA.consensus(ai, br21, br22)
 
         return ai, aj, MSA.consensus(ai, aj)
