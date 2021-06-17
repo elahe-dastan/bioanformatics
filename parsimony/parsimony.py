@@ -1,3 +1,6 @@
+import copy
+
+
 class Tree:
     def __init__(self, nodes):
         self.nodes = nodes
@@ -11,17 +14,6 @@ class Node:
         self.daughter = None
         self.son = None
 
-
-# class Edge:
-#     def __init__(self, i, j):
-#         self.i = i
-#         self.j = j
-
-
-# class Leave:
-#     def __init__(self, num, seq):
-#         self.num = num
-#         self.seq = seq
 
 def small_parsimony(t: Tree, character):
     for _, v in t.nodes.items():
@@ -79,7 +71,8 @@ if __name__ == "__main__":
             nodes_dict[int(nodes[1])] = Node("", 0)
 
         if nodes_dict.get(int(nodes[0]), -1) == -1:
-            node = Node("", 0).daughter = nodes_dict[int(nodes[1])]
+            node = Node("", 0)
+            node.daughter = nodes_dict[int(nodes[1])]
             nodes_dict[int(nodes[0])] = node
         elif nodes_dict[int(nodes[0])].daughter is None:
             nodes_dict[int(nodes[0])].daughter = nodes_dict[int(nodes[1])]
@@ -103,5 +96,6 @@ if __name__ == "__main__":
     score = 0
 
     for i in range(len(seq)):
-        score += small_parsimony(t, i)
+        score += small_parsimony(copy.deepcopy(t), i)
 
+    print(score)
